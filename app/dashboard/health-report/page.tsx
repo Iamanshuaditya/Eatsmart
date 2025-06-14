@@ -1,17 +1,32 @@
  "use client";
 
-import React, { useState } from "react";
+// Health Report page with collapsible Overall Health Score card
+// + Chatbot splash that cycles “Namaste” through many languages in the centre of the pane
+//   (inspired by Apple’s multilingual “hello” intro screen)
+// -----------------------------------------------------------------------------
+// UX touches
+// ✦ Score card collapses/expands via chevron; closed by default.
+// ✦ Chat messages retain updated colour palette.
+// ✦ When the conversation pane is empty (only the greeting), a centred,
+//   softly‑animating heading shows “Namaste” in ~20 scripts/languages.
+//   The words cross‑fade every 3 s via Framer‑motion.
+// ✦ EatSmart logo/wordmark subtly appears under the greeting for branding.
+// -----------------------------------------------------------------------------
+
+import React, { useState, useRef, useEffect } from "react";
 import {
-  TrendingUp,
-  TrendingDown,
   Heart,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  Download,
   Calendar,
-  Target
+  Download,
+  Mic,
+  SendHorizontal,
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// One‑UI primitives (reuse from your design‑system)
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,284 +35,321 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
+/** ---------------------------------------------------------------------------
+ *  MOCKED HEALTH DATA (unchanged)
+ *  -------------------------------------------------------------------------*/
+const healthData = {
+  overallScore: 78,
+  trend: "improving"
+} as const;
+
+/** ---------------------------------------------------------------------------
+ *  CHATBOT TYPES / HELPERS
+ *  -------------------------------------------------------------------------*/
+interface Msg {
+  id: number;
+  role: "user" | "bot" | "typing";
+  text?: string;
+  time?: string;
+}
+
+const initMsgs: Msg[] = [
+  {
+    id: 1,
+    role: "bot",
+    text: "Hello! How can I help you today?",
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+];
+
+const typingIndicator: Msg = { id: 999, role: "typing" };
+
+/** ---------------------------------------------------------------------------
+ *  MULTI‑LANG NAMASTE SETUP
+ *  -------------------------------------------------------------------------*/
+const namasteWords = [
+  "नमस्ते",      // Hindi / Sanskrit
+  "Namaste",     // English romanisation
+  "नमस्कार",     // Marathi / Nepali formal
+  "Hola",        // Spanish (hello)
+  "Bonjour",     // French
+  "Ciao",        // Italian
+  "Olá",         // Portuguese
+  "こんにちは",    // Japanese (Konnichiwa)
+  "안녕하세요",     // Korean (Annyeonghaseyo)
+  "您好",          // Chinese (Nín hǎo)
+  "Привет",       // Russian
+  "سلام",         // Arabic / Persian (Salaam)
+  "হ্যালো",        // Bengali (Hello)
+  "வணக்கம்",       // Tamil (Vanakkam)
+  "ਸਤ ਸ੍ਰੀ ਅਕਾਲ",   // Punjabi (Sat Sri Akaal)
+  "પ્રણામ",        // Gujarati (Pranam)
+  "ಹಲೋ",           // Kannada (Halo)
+  "ഹലോ",           // Malayalam (Halo)
+  "สวัสดี",         // Thai (Sawasdee)
+  "שלום"           // Hebrew (Shalom)
+];
+
+const fadeVariants = {
+  enter: { opacity: 0, y: 20 },
+  center: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 }
+};
+
+/** ---------------------------------------------------------------------------
+ *  PAGE COMPONENT
+ *  -------------------------------------------------------------------------*/
 export default function HealthReportPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState("week");
+  /** Collapsible overall score card */
+  const [scoreOpen, setScoreOpen] = useState(false);
 
-  /** ----------------------- MOCK DATA ---------------------- */
-  const healthData = {
-    overallScore: 78,
-    trend: "improving",
-    metrics: {
-      nutrition: { score: 82, trend: "up" },
-      hydration: { score: 65, trend: "down" },
-      exercise: { score: 88, trend: "up" },
-      sleep: { score: 72, trend: "stable" }
-    },
-    recommendations: [
+  /** Chatbot state */
+  const [messages, setMessages] = useState<Msg[]>(initMsgs);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  let msgId = useRef(2);
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  // Simulate bot response with typing effect
+  const simulateBot = (question: string) => {
+    setMessages(prev => [...prev, typingIndicator]);
+    setTimeout(() => {
+      setMessages(prev => prev.filter(m => m.role !== "typing").concat({
+        id: msgId.current++,
+        role: "bot",
+        text: `I’m still a demo, but here’s a canned response to: “${question}”`,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      }));
+      setIsSending(false);
+    }, 1600);
+  };
+
+  const send = () => {
+    if (!input.trim()) return;
+    const text = input.trim();
+    setIsSending(true);
+    setMessages(prev => [
+      ...prev,
       {
-        type: "critical",
-        title: "Increase Water Intake",
-        description: "You're drinking 20% less water than recommended. Aim for 8 glasses daily.",
-        action: "Set hourly reminders"
-      },
-      {
-        type: "warning",
-        title: "High Sodium Consumption",
-        description: "Your sodium intake is 150% above the recommended daily limit.",
-        action: "Choose low-sodium alternatives"
-      },
-      {
-        type: "success",
-        title: "Excellent Protein Intake",
-        description: "You're consistently meeting your protein goals.",
-        action: "Keep up the good work"
+        id: msgId.current++,
+        role: "user",
+        text,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       }
-    ],
-    nutritionAnalysis: {
-      calories: { avg: 1850, target: 2000, trend: -5 },
-      protein: { avg: 95, target: 120, trend: 8 },
-      carbs: { avg: 220, target: 250, trend: -2 },
-      fat: { avg: 65, target: 70, trend: 3 },
-      fiber: { avg: 18, target: 25, trend: 12 },
-      sugar: { avg: 45, target: 35, trend: -8 }
-    },
-    riskFactors: [
-      { name: "Cardiovascular Risk", level: "Low", color: "green" },
-      { name: "Diabetes Risk", level: "Moderate", color: "yellow" },
-      { name: "Obesity Risk", level: "Low", color: "green" },
-      { name: "Hypertension Risk", level: "Low", color: "green" }
-    ]
-  } as const;
+    ]);
+    setInput("");
+    simulateBot(text);
+  };
 
-  /** ----------------------- HELPERS ------------------------ */
-  const periodLabel = selectedPeriod === "week" ? "This Week" : selectedPeriod === "month" ? "This Month" : "This Year";
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
 
-  /** ----------------------- COMPONENT ---------------------- */
+  /** -----------------------------------------------------------------------
+   *  Animated multilingual Namaste headline
+   *  ---------------------------------------------------------------------*/
+  const [wordIdx, setWordIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setWordIdx(i => (i + 1) % namasteWords.length), 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const showSplash = messages.length === 1 && messages[0].role === "bot"; // only greeting present
+
   return (
     <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pt-6 pb-12 min-h-screen w-full overflow-x-hidden bg-[radial-gradient(ellipse_at_top,theme(colors.violet.950)_0%,theme(colors.violet.950/_80)_20%,theme(colors.black)_100%)] text-white">
       {/* Heading & actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Health Report</h1>
           <p className="text-muted-foreground">Comprehensive analysis of your health metrics</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="rounded-full">
-            <Calendar className="mr-2 h-4 w-4" />
-            {periodLabel}
+            <Calendar className="mr-2 h-4 w-4" /> This Week
           </Button>
           <Button size="sm" className="one-ui-button rounded-full">
-            <Download className="mr-2 h-4 w-4" />
-            Export Report
+            <Download className="mr-2 h-4 w-4" /> Export Report
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Overall score */}
-      <Card className="one-ui-card">
-        <CardHeader className="bg-black/10 rounded-t-2xl border-b border-white/5 backdrop-blur-sm">
-          <CardTitle className="flex items-center gap-2">
+      {/* Collapsible overall health score card */}
+      <Card className="one-ui-card overflow-hidden">
+        <button
+          className="w-full flex items-center justify-between px-6 py-4 bg-white/5 backdrop-blur-sm border-b border-white/10"
+          onClick={() => setScoreOpen(o => !o)}
+          aria-expanded={scoreOpen}
+        >
+          <span className="flex items-center gap-2 text-lg font-semibold">
             <Heart className="h-6 w-6 text-red-500" /> Overall Health Score
-          </CardTitle>
-          <CardDescription>Based on your nutrition, activity, and lifestyle data</CardDescription>
-        </CardHeader>
-        <CardContent className="py-8">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            {/* Circular score meter */}
-            <div className="relative self-start">
-              <div className="w-32 h-32 rounded-full border-[10px] border-secondary/50 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-primary-foreground">{healthData.overallScore}</p>
-                  <p className="text-sm text-muted-foreground">/ 100</p>
-                </div>
-              </div>
-              {/* Dynamic arc */}
-              <div
-                className="absolute top-0 left-0 w-32 h-32 rounded-full border-[10px] border-transparent border-t-current border-r-current"
-                style={{
-                  transform: `rotate(${(healthData.overallScore / 100) * 360}deg)`,
-                  transition: "transform 0.6s ease",
-                  color:
-                    healthData.overallScore >= 80
-                      ? "#22c55e"
-                      : healthData.overallScore >= 60
-                      ? "#eab308"
-                      : "#ef4444"
-                }}
-              />
-            </div>
+          </span>
+          {scoreOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </button>
+        <AnimatePresence initial={false}>
+          {scoreOpen && (
+            <motion.div
+              key="score"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+            >
+              <CardContent className="py-8">
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  {/* Circular score */}
+                  <div className="relative">
+                    <svg width="140" height="140" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="45" fill="none" stroke="hsla(0,0%,100%,0.05)" strokeWidth="10" />
+                      <motion.circle
+                        cx="50" cy="50" r="45" fill="none" stroke="#eab308" strokeWidth="10" strokeLinecap="round"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: healthData.overallScore / 100 }}
+                        transition={{ duration: 1.2, ease: "easeInOut" }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-bold">{healthData.overallScore}</span>
+                      <span className="text-sm text-muted-foreground">/100</span>
+                    </div>
+                  </div>
 
-            {/* Trend + message */}
-            <div className="flex-1 space-y-2">
-              <Badge
-                variant={healthData.trend === "improving" ? "default" : "secondary"}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide w-max"
-              >
-                {healthData.trend === "improving" ? (
-                  <TrendingUp className="mr-1 h-3 w-3" />
-                ) : (
-                  <TrendingDown className="mr-1 h-3 w-3" />
-                )}
-                {healthData.trend}
-              </Badge>
-              <p className="text-sm text-muted-foreground max-w-xl">
-                Your health score has improved by 8 points this week. Keep up the great work with your nutrition and exercise
-                routine.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid grid-cols-4 bg-white/5 rounded-full p-1">
-          <TabsTrigger value="overview" className="rounded-full py-1.5">Overview</TabsTrigger>
-          <TabsTrigger value="nutrition" className="rounded-full py-1.5">Nutrition</TabsTrigger>
-          <TabsTrigger value="risks" className="rounded-full py-1.5">Risk Analysis</TabsTrigger>
-          <TabsTrigger value="recommendations" className="rounded-full py-1.5">Recommendations</TabsTrigger>
-        </TabsList>
-
-        {/* ---------------- Overview -------------- */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(healthData.metrics).map(([key, metric]) => (
-              <Card key={key} className="one-ui-card">
-                <CardHeader className="pb-1">
-                  <CardTitle className="text-sm font-medium capitalize">{key}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold">{metric.score}</span>
-                    <div
-                      className={`flex items-center ${
-                        metric.trend === "up"
-                          ? "text-green-500"
-                          : metric.trend === "down"
-                          ? "text-red-500"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {metric.trend === "up" ? (
-                        <TrendingUp className="h-4 w-4" />
-                      ) : metric.trend === "down" ? (
-                        <TrendingDown className="h-4 w-4" />
+                  {/* Score trend */}
+                  <div className="flex-1 space-y-2">
+                    <Badge className="rounded-full px-3 py-1.5 w-max">
+                      {healthData.trend === "improving" ? (
+                        <span className="flex items-center gap-1">📈 improving</span>
                       ) : (
-                        <Activity className="h-4 w-4" />
+                        <span className="flex items-center gap-1">📉 declining</span>
                       )}
-                    </div>
-                  </div>
-                  <Progress value={metric.score} className="mt-3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* -------------- Nutrition -------------- */}
-        <TabsContent value="nutrition" className="space-y-4">
-          <Card className="one-ui-card">
-            <CardHeader>
-              <CardTitle>Nutritional Analysis</CardTitle>
-              <CardDescription>Detailed breakdown of your nutrient intake</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.entries(healthData.nutritionAnalysis).map(([nutrient, data]) => (
-                  <div key={nutrient} className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium capitalize">{nutrient}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {data.avg} / {data.target}
-                        </span>
-                        <div className={data.trend > 0 ? "text-green-500" : "text-red-500"}>
-                          {data.trend > 0 ? <TrendingUp className="h-3 w-3 inline-block" /> : <TrendingDown className="h-3 w-3 inline-block" />}
-                          <span className="text-xs ml-1">{Math.abs(data.trend)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Progress value={(data.avg / data.target) * 100} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* -------------- Risks -------------- */}
-        <TabsContent value="risks" className="space-y-4">
-          <Card className="one-ui-card">
-            <CardHeader>
-              <CardTitle>Health Risk Assessment</CardTitle>
-              <CardDescription>Based on your dietary patterns and lifestyle</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {healthData.riskFactors.map((risk) => (
-                <div key={risk.name} className="flex items-center justify-between p-4 bg-black/10 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`inline-block w-3 h-3 rounded-full ${
-                        risk.color === "green" ? "bg-green-500" : risk.color === "yellow" ? "bg-yellow-400" : "bg-red-500"
-                      }`}
-                    />
-                    <span className="font-medium text-sm">{risk.name}</span>
-                  </div>
-                  <Badge
-                    variant={
-                      risk.level === "Low" ? "default" : risk.level === "Moderate" ? "secondary" : "destructive"
-                    }
-                    className="rounded-full px-3 py-1 text-xs"
-                  >
-                    {risk.level}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ------------- Recommendations ------------- */}
-        <TabsContent value="recommendations" className="space-y-4">
-          {healthData.recommendations.map((rec) => (
-            <Card key={rec.title} className="one-ui-card">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`p-2 rounded-full ${
-                      rec.type === "critical"
-                        ? "bg-red-500/10 text-red-400"
-                        : rec.type === "warning"
-                        ? "bg-yellow-400/10 text-yellow-400"
-                        : "bg-green-500/10 text-green-400"
-                    }`}
-                  >
-                    {rec.type === "critical" ? (
-                      <AlertTriangle className="h-5 w-5" />
-                    ) : rec.type === "warning" ? (
-                      <AlertTriangle className="h-5 w-5" />
-                    ) : (
-                      <CheckCircle className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-3">
-                    <h3 className="font-semibold leading-tight">{rec.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-snug">{rec.description}</p>
-                    <Button size="sm" variant="outline" className="rounded-full">
-                      <Target className="mr-2 h-4 w-4" />
-                      {rec.action}
-                    </Button>
+                    </Badge>
+                    <p className="text-sm text-muted-foreground max-w-xl">
+                      Your health score has improved by 8 points this week. Keep it up!
+                    </p>
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-      </Tabs>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+
+      {/* ------------------------------------------------------------------
+           CHATBOT SECTION
+         ------------------------------------------------------------------*/}
+      <Card className="one-ui-card flex overflow-hidden min-h-[540px]">
+        {/* Sidebar */}
+        <aside className="hidden md:flex w-52 flex-col items-center gap-4 border-r border-white/10 bg-white/5 backdrop-blur-sm p-6">
+          <h3 className="text-lg font-bold mb-4">HISTORY</h3>
+          <div className="flex-1 w-full" />
+        </aside>
+
+        {/* Conversation Pane */}
+        <div className="relative flex-1 flex flex-col">
+          {/* Animated Multilingual Splash */}
+          {showSplash && (
+            <motion.div
+              className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none"
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.h2
+                  key={wordIdx}
+                  variants={fadeVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  className="text-5xl md:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-rose-200 drop-shadow-lg"
+                >
+                  {namasteWords[wordIdx]}
+                </motion.h2>
+              </AnimatePresence>
+              {/* EatSmart brand tagline */}
+              <span className="mt-4 text-xl font-semibold text-rose-200/80 tracking-wider">EatSmart</span>
+            </motion.div>
+          )}
+
+          {/* Header with user avatar */}
+          <header className="flex items-center justify-end gap-3 px-4 py-3 border-b border-white/10 bg-white/5 backdrop-blur-sm z-10">
+            <span className="font-medium">Amit S.</span>
+            <img src="https://api.dicebear.com/8.x/avataaars/svg?seed=Amit" alt="avatar" className="w-8 h-8 rounded-full" />
+          </header>
+
+          {/* Messages */}
+          <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+            <AnimatePresence initial={false}>
+              {messages.map(m => (
+                m.role === "typing" ? (
+                  <motion.div
+                    key={m.id}
+                    className="flex"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <div className="px-4 py-3 rounded-2xl bg-white/10 backdrop-blur-sm w-max">
+                      <div className="flex gap-1">
+                        <motion.span className="block w-2 h-2 rounded-full bg-teal-300" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", delay: 0 }} />
+                        <motion.span className="block w-2 h-2 rounded-full bg-teal-200" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", delay: 0.2 }} />
+                        <motion.span className="block w-2 h-2 rounded-full bg-teal-100" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", delay: 0.4 }} />
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={m.id}
+                    className={m.role === "user" ? "flex justify-end" : "flex"}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  >
+                    <div
+                      className={
+                        m.role === "user"
+                          ? "bg-teal-600 text-white px-4 py-3 rounded-2xl rounded-br-none max-w-[70%]"
+                          : "bg-white/5 backdrop-blur-sm px-4 py-3 rounded-2xl rounded-bl-none max-w-[70%] text-white"
+                      }
+                    >
+                      <p className="whitespace-pre-wrap leading-snug">{m.text}</p>
+                    </div>
+                  </motion.div>
+                )
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Input */}
+          <form
+            className="flex items-center gap-3 px-4 py-4 border-t border-white/10 bg-white/5 backdrop-blur-sm"
+            onSubmit={e => {
+              e.preventDefault();
+              send();
+            }}
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder="Type your message..."
+              className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+            <Button type="button" size="icon" variant="ghost" onClick={() => console.log("TODO: voice")}> <Mic className="w-5 h-5" /> </Button>
+            <Button type="submit" size="icon" disabled={isSending || !input.trim()} className="one-ui-button aspect-square">
+              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <SendHorizontal className="w-5 h-5" />}
+            </Button>
+          </form>
+        </div>
+      </Card>
     </div>
   );
 }
