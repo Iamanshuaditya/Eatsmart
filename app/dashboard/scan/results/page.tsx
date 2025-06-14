@@ -1,185 +1,167 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Save, Share2, AlertTriangle, Sparkles, Zap, Utensils } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 export default function ResultsPage() {
   const [activeTab, setActiveTab] = useState("nutrition")
+  const [analysisData, setAnalysisData] = useState<any>(null)
+  const router = useRouter()
 
-  // Mock data for the food analysis
-  const foodData = {
-    name: "Grilled Chicken Salad",
-    image: "/placeholder.svg?height=300&width=400",
-    calories: 320,
-    macros: {
-      protein: 28,
-      carbs: 12,
-      fat: 18,
-      fiber: 4,
-    },
-    ingredients: [
-      { name: "Grilled Chicken Breast", amount: "120g", calories: 165 },
-      { name: "Mixed Greens", amount: "80g", calories: 20 },
-      { name: "Cherry Tomatoes", amount: "50g", calories: 15 },
-      { name: "Avocado", amount: "50g", calories: 80 },
-      { name: "Olive Oil Dressing", amount: "15ml", calories: 40 },
-    ],
-    allergens: ["None detected"],
-    healthScore: 85,
-    warnings: ["High sodium content"],
-    aiInsights: [
-      "This meal is high in protein and healthy fats",
-      "Consider reducing the dressing to lower sodium intake",
-      "Good source of vitamins A and C from the vegetables",
-    ],
+  useEffect(() => {
+    // Get the analysis data from localStorage
+    const storedData = localStorage.getItem('scanResult')
+    if (!storedData) {
+      router.push('/dashboard/scan')
+      return
+    }
+    setAnalysisData(JSON.parse(storedData))
+  }, [router])
+
+  if (!analysisData) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Loading...</h1>
+          <p className="text-muted-foreground">Please wait while we process your results</p>
+        </div>
+      </div>
+    )
   }
+
+  const additiveInfo = analysisData.additive_info
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Analysis Results</h1>
-        <p className="text-muted-foreground">Nutritional breakdown of your meal</p>
+        <p className="text-muted-foreground">Detailed analysis of the food additive</p>
       </div>
 
       <Card className="one-ui-card">
         <CardHeader className="pb-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle className="text-2xl">{foodData.name}</CardTitle>
-              <CardDescription>Analyzed on {new Date().toLocaleDateString()}</CardDescription>
+              <CardTitle className="text-2xl">{additiveInfo.common_name}</CardTitle>
+              <CardDescription>Chemical Name: {additiveInfo.chemical_name}</CardDescription>
             </div>
             <Badge variant="outline" className="w-fit flex items-center gap-1 rounded-full">
               <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              {foodData.healthScore}% Healthy
+              {additiveInfo.health_profile.safety.status}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="aspect-[16/9] overflow-hidden rounded-3xl bg-muted mb-6">
-            <img
-              src={foodData.image || "/placeholder.svg"}
-              alt={foodData.name}
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          <Tabs defaultValue="nutrition" value={activeTab} onValueChange={setActiveTab}>
+          <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid grid-cols-4 mb-4">
-              <TabsTrigger value="nutrition" className="rounded-full">
-                Nutrition
+              <TabsTrigger value="overview" className="rounded-full">
+                Overview
               </TabsTrigger>
-              <TabsTrigger value="ingredients" className="rounded-full">
-                Ingredients
+              <TabsTrigger value="properties" className="rounded-full">
+                Properties
               </TabsTrigger>
               <TabsTrigger value="health" className="rounded-full">
                 Health Info
               </TabsTrigger>
-              <TabsTrigger value="ai" className="rounded-full">
-                AI Insights
+              <TabsTrigger value="regulatory" className="rounded-full">
+                Regulatory
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="nutrition" className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-secondary/50 rounded-2xl">
-                <span className="font-medium">Total Calories</span>
-                <span className="text-xl font-bold">{foodData.calories} kcal</span>
-              </div>
+            <TabsContent value="overview" className="space-y-4">
+              <div className="space-y-4">
+                <div className="p-4 bg-secondary/50 rounded-2xl">
+                  <h3 className="font-medium mb-2">Category</h3>
+                  <p>{additiveInfo.category}</p>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <MacroCard name="Protein" value={foodData.macros.protein} unit="g" color="blue" />
-                <MacroCard name="Carbs" value={foodData.macros.carbs} unit="g" color="orange" />
-                <MacroCard name="Fat" value={foodData.macros.fat} unit="g" color="yellow" />
-                <MacroCard name="Fiber" value={foodData.macros.fiber} unit="g" color="green" />
+                <div className="p-4 bg-secondary/50 rounded-2xl">
+                  <h3 className="font-medium mb-2">Usages</h3>
+                  <div className="space-y-2">
+                    {additiveInfo.usages.map((usage: any, index: number) => (
+                      <div key={index} className="flex justify-between">
+                        <span className="font-medium">{usage.role}</span>
+                        <span className="text-muted-foreground">{usage.purpose}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="ingredients" className="space-y-4">
-              <div className="divide-y">
-                {foodData.ingredients.map((ingredient, index) => (
-                  <div key={index} className="py-3 flex justify-between">
-                    <div>
-                      <p className="font-medium">{ingredient.name}</p>
-                      <p className="text-sm text-muted-foreground">{ingredient.amount}</p>
-                    </div>
-                    <span className="font-medium">{ingredient.calories} kcal</span>
-                  </div>
-                ))}
+            <TabsContent value="properties" className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <PropertyCard name="Brightness" value={additiveInfo.properties.brightness} color="blue" />
+                <PropertyCard name="Stability" value={additiveInfo.properties.stability} color="green" />
+                <PropertyCard name="Cost Efficiency" value={additiveInfo.properties.cost_efficiency} color="yellow" />
               </div>
             </TabsContent>
 
             <TabsContent value="health" className="space-y-4">
               <div className="space-y-4">
-                <div>
-                  <h3 className="font-medium mb-2">Allergens</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {foodData.allergens.map((allergen, index) => (
-                      <Badge key={index} variant="secondary" className="rounded-full">
-                        {allergen}
-                      </Badge>
-                    ))}
+                <div className="p-4 bg-secondary/50 rounded-2xl">
+                  <h3 className="font-medium mb-2">Safety Status</h3>
+                  <div className="space-y-2">
+                    <p>Status: {additiveInfo.health_profile.safety.status}</p>
+                    <p>Evaluated by: {additiveInfo.health_profile.safety.evaluated_by}</p>
+                    <p>Year: {additiveInfo.health_profile.safety.year}</p>
                   </div>
                 </div>
 
-                {foodData.warnings.length > 0 && (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-2xl">
-                    <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300 mb-2">
-                      <AlertTriangle className="h-5 w-5" />
-                      <h3 className="font-medium">Warnings</h3>
-                    </div>
-                    <ul className="list-disc list-inside text-sm text-yellow-700 dark:text-yellow-300/80">
-                      {foodData.warnings.map((warning, index) => (
-                        <li key={index}>{warning}</li>
-                      ))}
-                    </ul>
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-2xl">
+                  <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300 mb-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    <h3 className="font-medium">Potential Risks</h3>
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <p>Environmental Impact: {additiveInfo.health_profile.potential_risks.environmental}</p>
+                    <p>Digestive Effect: {additiveInfo.health_profile.potential_risks.digestive_effect}</p>
+                    <p>Long-term Effect: {additiveInfo.health_profile.potential_risks.long_term_effect}</p>
+                    <p>Metabolism Effect: {additiveInfo.health_profile.potential_risks.metabolism_effect}</p>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Vulnerable Groups</h4>
+                    <div className="space-y-2">
+                      {additiveInfo.health_profile.potential_risks.vulnerable_groups.map((group: any, index: number) => (
+                        <div key={index} className="flex justify-between">
+                          <span className="font-medium">{group.group}</span>
+                          <span className="text-muted-foreground">{group.effect}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="space-y-4">
-              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-blue-500" />
-                    Edge AI Analysis
-                  </CardTitle>
-                  <CardDescription>Personalized insights based on your dietary preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {foodData.aiInsights.map((insight, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <Zap className="h-4 w-4 mt-1 text-blue-500" />
-                        <span>{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+            <TabsContent value="regulatory" className="space-y-4">
+              <div className="space-y-4">
+                <div className="p-4 bg-secondary/50 rounded-2xl">
+                  <h3 className="font-medium mb-2">Acceptable Daily Intake</h3>
+                  <div className="space-y-2">
+                    <p>Value: {additiveInfo.regulatory_status.acceptable_daily_intake.value_mg_per_kg_bw}</p>
+                    <p>Source: {additiveInfo.regulatory_status.acceptable_daily_intake.source}</p>
+                  </div>
+                </div>
 
-              <div className="p-4 bg-secondary/50 rounded-2xl">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Utensils className="h-4 w-4" />
-                  Meal Recommendations
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Based on your health goals and this meal's nutrition profile
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full">
-                    Add more fiber
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full">
-                    Pair with whole grains
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full">
-                    Reduce sodium at dinner
-                  </Badge>
+                <div className="p-4 bg-secondary/50 rounded-2xl">
+                  <h3 className="font-medium mb-2">Country Regulations</h3>
+                  <div className="space-y-2">
+                    {additiveInfo.regulatory_status.country_regulations.map((regulation: any, index: number) => (
+                      <div key={index} className="flex justify-between">
+                        <span className="font-medium">{regulation.region}</span>
+                        <span className="text-muted-foreground">{regulation.status}</span>
+                        <span className="text-sm text-muted-foreground">{regulation.note}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -206,15 +188,13 @@ export default function ResultsPage() {
   )
 }
 
-function MacroCard({
+function PropertyCard({
   name,
   value,
-  unit,
   color,
 }: {
   name: string
-  value: number
-  unit: string
+  value: string
   color: "blue" | "green" | "yellow" | "orange"
 }) {
   const colorClasses = {
@@ -227,10 +207,7 @@ function MacroCard({
   return (
     <div className={`p-4 rounded-2xl ${colorClasses[color]}`}>
       <p className="text-sm font-medium opacity-80">{name}</p>
-      <p className="text-2xl font-bold">
-        {value}
-        <span className="text-sm ml-1">{unit}</span>
-      </p>
+      <p className="text-2xl font-bold">{value}</p>
     </div>
   )
 }
