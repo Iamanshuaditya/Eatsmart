@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -23,6 +23,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/use-toast";
 
 /**
  * Revamped Scan Page – Polished UI ✨
@@ -95,11 +96,21 @@ export default function ScanPage() {
     setIsBusy("idle");
   };
 
-  const handleFileUpload: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+  const handleFileUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Convert file to base64
     const reader = new FileReader();
-    reader.onload = (ev) => setCapturedImage(ev.target?.result as string);
+    reader.onload = (ev) => {
+      const base64Image = ev.target?.result as string;
+      setCapturedImage(base64Image);
+      
+      // If in ingredients mode, automatically analyze
+      if (scanMode === "ingredients") {
+        analyze(base64Image);
+      }
+    };
     reader.readAsDataURL(file);
   };
 
@@ -108,13 +119,50 @@ export default function ScanPage() {
     if (captureMode === "camera") startCamera();
   };
 
-  const analyze = () => {
-    setIsBusy("analyzing");
-    // Simulate on‑device inference
-    setTimeout(() => {
-      setIsBusy("idle");
+  const analyze = async (imageData?: string) => {
+    try {
+      setIsBusy("analyzing");
+      const base64Data = imageData || capturedImage?.split(',')[1];
+      
+      if (!base64Data) {
+        throw new Error('No image data available');
+      }
+
+      // Call the ingredient analysis API
+      const response = await fetch('http://localhost:8000/ingredients/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: base64Data,
+          mode: scanMode
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to analyze image');
+      }
+
+      const result = await response.json();
+      
+      // Store the result in localStorage for the results page
+      localStorage.setItem('scanResult', JSON.stringify(result));
+      
+      // Navigate to results page
       router.push("/dashboard/scan/results");
-    }, 1800);
+    } catch (error) {
+      console.error('Analysis error:', error);
+      // Show error toast
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBusy("idle");
+    }
   };
 
   /* ----------------------------- UI ------------------------------- */
@@ -124,7 +172,7 @@ export default function ScanPage() {
       <header className="text-center mb-10">
         <h1 className="text-4xl font-extrabold tracking-tight gradient-text">Scan Food</h1>
         <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
-          Analyze your meal’s nutritional content – privately, on‑device.
+          Analyze your meal's nutritional content – privately, on‑device.
         </p>
       </header>
 
@@ -202,7 +250,7 @@ export default function ScanPage() {
                 >
                   <ImageIcon className="h-10 w-10 text-muted-foreground group-hover:scale-105 transition" />
                   <span className="text-sm font-medium">Click to upload</span>
-                  <span className="text-xs text-muted-foreground">JPG • PNG • HEIC up to 10 MB</span>
+                  <span className="text-xs text-muted-foreground">JPG • PNG • HEIC up to 10 MB</span>
                   <input
                     id="upload"
                     ref={fileInputRef}
@@ -241,7 +289,7 @@ export default function ScanPage() {
             <Button
               disabled={isBusy === "analyzing"}
               className="w-full gradient-btn"
-              onClick={analyze}
+              onClick={() => analyze()}
             >
               {isBusy === "analyzing" ? (
                 <>
