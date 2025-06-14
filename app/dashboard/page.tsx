@@ -1,4 +1,5 @@
  "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Camera, History, FileText } from "lucide-react";
@@ -6,20 +7,20 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 /**
- * EatSmart dashboard – neon‑futuristic UI with refined micro‑animations.
+ * EatSmart dashboard – neon-futuristic UI with refined micro-animations.
  * Card borders now have a gentle flowing gradient; the card background stays static.
  */
 
+/* -------- NAV LINKS -------- */
 const navLinks = [
-  { href: "#home", label: "Home" },
-  { href: "#features", label: "Features" },
-  { href: "#roadmap", label: "Roadmap" },
+  { href: "/dashboard/measure-height", label: "Measure Height" }, // replaced Roadmap
 ];
 
+/* -------- QUICK-ACTION BUTTONS (absolute paths) -------- */
 const actions = [
-  { label: "Scan Food", path: "scan" },
-  { label: "View History", path: "history" },
-  { label: "Health Report", path: "health-report" },
+  { label: "Scan Food", href: "/dashboard/scan" },
+  { label: "Chat", href: "dashboard/chat" },               // now goes to /chat
+  { label: "Health Report", href: "/dashboard/health-report" },
 ];
 
 export default function DashboardPage() {
@@ -34,11 +35,17 @@ export default function DashboardPage() {
       <nav className="relative z-10 flex items-center justify-between px-8 py-4">
         <div className="flex items-center space-x-2 text-2xl font-extrabold">
           <span className="text-white">Eat</span>
-          <span className="bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">Smart</span>
+          <span className="bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
+            Smart
+          </span>
         </div>
         <div className="hidden md:flex items-center space-x-8 text-sm">
           {navLinks.map((l) => (
-            <Link key={l.label} href={l.href} className="transition-colors hover:text-fuchsia-300">
+            <Link
+              key={l.label}
+              href={l.href}
+              className="transition-colors hover:text-fuchsia-300"
+            >
               {l.label}
             </Link>
           ))}
@@ -53,15 +60,22 @@ export default function DashboardPage() {
         <section className="w-full max-w-xl">
           <h1 className="text-5xl font-extrabold leading-tight tracking-tight lg:text-6xl">
             Welcome back,&nbsp;
-            <span className="bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">Alex</span>
+            <span className="bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
+              Alex
+            </span>
           </h1>
-          <p className="mt-4 text-lg text-white/80">Track your nutrition and make healthier choices.</p>
+          <p className="mt-4 text-lg text-white/80">
+            Track your nutrition and make healthier choices.
+          </p>
 
           {/* ACTION BUTTONS */}
           <div className="mt-10 flex flex-wrap gap-6">
-            {actions.map(({ label, path }) => (
-              <ShimmerButton key={label} onClick={() => router.push(`/dashboard/${path}`)}>
-                {label}
+            {actions.map((action) => (
+              <ShimmerButton
+                key={action.label}
+                onClick={() => router.push(action.href)}
+              >
+                {action.label}
               </ShimmerButton>
             ))}
           </div>
@@ -109,7 +123,8 @@ export default function DashboardPage() {
           </div>
         </section>
 
-         <section className="w-full max-w-lg">
+        {/* PHONE MOCKUP */}
+        <section className="w-full max-w-lg">
           <Image
             src="https://res.cloudinary.com/dvfk4g3wh/image/upload/v1749914639/9871872b-dbaf-42b3-bdfe-e40651ae58d2_yl9mwg.png"
             alt="App preview"
@@ -123,7 +138,6 @@ export default function DashboardPage() {
 
       {/* GLOBAL STYLES */}
       <style jsx global>{`
-        /* flowing border gradient */
         @keyframes border-flow {
           0% {
             background-position: 0% 50%;
@@ -139,7 +153,6 @@ export default function DashboardPage() {
 
 /* ---------------- Components ---------------- */
 
-/** Button with animated border */
 function ShimmerButton({
   children,
   onClick,
@@ -154,7 +167,7 @@ function ShimmerButton({
       className="relative inline-flex min-w-[160px] items-center justify-center overflow-hidden rounded-full px-8 py-4 text-lg font-semibold text-white backdrop-blur-md"
       style={{ background: "rgba(10,5,50,1)" }}
     >
-      {/* border gradient */}
+      {/* animated border */}
       <motion.span
         aria-hidden
         initial={{ backgroundPosition: "0% 50%" }}
@@ -164,10 +177,11 @@ function ShimmerButton({
         style={{
           backgroundImage: "linear-gradient(120deg,#00e4ff,#ff00ff,#00e4ff)",
           backgroundSize: "200% 200%",
-          WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
+          WebkitMask:
+            "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
           WebkitMaskComposite: "xor",
           maskComposite: "exclude",
-        } as React.CSSProperties}
+        }}
       />
       <span className="relative z-10 select-none">{children}</span>
     </motion.button>
@@ -177,7 +191,6 @@ function ShimmerButton({
 function BorderCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#0e082d]/80 p-6 backdrop-blur-md">
-      {/* animated gradient border */}
       <motion.span
         aria-hidden
         className="pointer-events-none absolute inset-0 rounded-2xl p-px"
@@ -187,10 +200,11 @@ function BorderCard({ children }: { children: React.ReactNode }) {
         style={{
           backgroundImage: "linear-gradient(120deg,#ff00ff,#7800ff,#00e0ff)",
           backgroundSize: "200% 200%",
-          WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
+          WebkitMask:
+            "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
           WebkitMaskComposite: "xor",
           maskComposite: "exclude",
-        } as React.CSSProperties}
+        }}
       />
       {children}
     </div>

@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -10,7 +10,7 @@ import {
   Scan,
   Barcode,
   FileText,
-  RotateCcw
+  RotateCcw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -20,30 +20,24 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle
+  CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 
 /**
- * Revamped Scan Page – Polished UI ✨
- * ---------------------------------------------------------------
- * • Responsive full‑height layout that blends seamlessly with the
- *   gradient dashboard background.
- * • Reusable "gradient" & "glass" utility classes (defined globally
- *   in the dashboard Tailwind config) for modern, Airbnb‑like feel.
- * • Clean hooks (useEffect instead of anonymous useState call) &
- *   graceful camera‑fallback UX.
- * • Animations via Framer Motion for subtle delight (no extra code –
- *   variants live in global `_motion.ts` helpers used throughout app).
+ * Scan Page – re-uses the same neon-futuristic background/noise
+ * overlay as the dashboard so the experience feels seamless.
  */
 export default function ScanPage() {
   const router = useRouter();
 
   /* ----------------------------- Local state ----------------------------- */
   const [captureMode, setCaptureMode] = useState<"camera" | "upload">("camera");
-  const [scanMode, setScanMode] = useState<"food" | "barcode" | "ingredients">("food");
-  const [isBusy, setIsBusy] = useState<"idle" | "capturing" | "analyzing">("idle");
+  const [scanMode, setScanMode] =
+    useState<"food" | "barcode" | "ingredients">("food");
+  const [isBusy, setIsBusy] =
+    useState<"idle" | "capturing" | "analyzing">("idle");
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   /* ----------------------------- Refs ----------------------------- */
@@ -54,7 +48,7 @@ export default function ScanPage() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } }
+        video: { facingMode: { ideal: "environment" } },
       });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (error) {
@@ -75,7 +69,7 @@ export default function ScanPage() {
   /* ----------------------- Lifecycle effects ---------------------- */
   useEffect(() => {
     if (captureMode === "camera" && !capturedImage) startCamera();
-    return stopCamera; // cleanup
+    return stopCamera; // cleanup on unmount / mode switch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [captureMode]);
 
@@ -96,19 +90,17 @@ export default function ScanPage() {
     setIsBusy("idle");
   };
 
-  const handleFileUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+  const handleFileUpload: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Convert file to base64
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const base64Image = ev.target?.result as string;
-      setCapturedImage(base64Image);
-      
-      // If in ingredients mode, automatically analyze
+      const base64 = ev.target?.result as string;
+      setCapturedImage(base64);
+
       if (scanMode === "ingredients") {
-        analyze(base64Image);
+        analyze(base64);
       }
     };
     reader.readAsDataURL(file);
@@ -122,42 +114,32 @@ export default function ScanPage() {
   const analyze = async (imageData?: string) => {
     try {
       setIsBusy("analyzing");
-      const base64Data = imageData || capturedImage?.split(',')[1];
-      
-      if (!base64Data) {
-        throw new Error('No image data available');
-      }
+      const base64 = imageData
+        ? imageData.split(",")[1]
+        : capturedImage?.split(",")[1];
 
-      // Call the ingredient analysis API
-      const response = await fetch('http://localhost:8000/ingredients/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: base64Data,
-          mode: scanMode
-        }),
+      if (!base64) throw new Error("No image data to analyze");
+
+      const response = await fetch("http://localhost:8000/ingredients/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, mode: scanMode }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to analyze image');
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Failed to analyze image");
       }
 
       const result = await response.json();
-      
-      // Store the result in localStorage for the results page
-      localStorage.setItem('scanResult', JSON.stringify(result));
-      
-      // Navigate to results page
+      localStorage.setItem("scanResult", JSON.stringify(result));
       router.push("/dashboard/scan/results");
-    } catch (error) {
-      console.error('Analysis error:', error);
-      // Show error toast
+    } catch (err) {
+      console.error("Analysis error", err);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to analyze image",
+        description:
+          err instanceof Error ? err.message : "Failed to analyze image",
         variant: "destructive",
       });
     } finally {
@@ -167,17 +149,22 @@ export default function ScanPage() {
 
   /* ----------------------------- UI ------------------------------- */
   return (
-    <section className="flex flex-col items-center justify-start min-h-[calc(100dvh-64px)] overflow-y-auto px-4 py-10 sm:py-14 lg:py-20">
+    <section className="relative flex flex-col items-center justify-start min-h-[calc(100dvh-64px)] overflow-y-auto px-4 py-10 sm:py-14 lg:py-20 text-white bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#14005c] via-[#080024] to-[#030012]">
+      {/* noise overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-[url('/noise.png')] opacity-[0.05]" />
+
       {/* Heading */}
-      <header className="text-center mb-10">
-        <h1 className="text-4xl font-extrabold tracking-tight gradient-text">Scan Food</h1>
-        <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
-          Analyze your meal's nutritional content – privately, on‑device.
+      <header className="relative z-10 mb-10 text-center">
+        <h1 className="text-4xl font-extrabold tracking-tight gradient-text">
+          Scan Food
+        </h1>
+        <p className="mx-auto mt-2 max-w-sm text-muted-foreground">
+          Analyze your meal&apos;s nutritional content – privately, on-device.
         </p>
       </header>
 
       {/* Main card */}
-      <Card className="one-ui-card glass max-w-[32rem] w-full">
+      <Card className="relative z-10 w-full max-w-[32rem] one-ui-card glass">
         <CardHeader>
           <CardTitle>Capture Image</CardTitle>
           <CardDescription>
@@ -188,7 +175,7 @@ export default function ScanPage() {
         <CardContent className="space-y-5">
           {/* Scan mode tabs */}
           <Tabs value={scanMode} onValueChange={(v) => setScanMode(v as any)}>
-            <TabsList className="grid grid-cols-3 w-full rounded-xl bg-muted/70 backdrop-blur">
+            <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/70 backdrop-blur">
               <TabsTrigger value="food" className="rounded-xl">
                 <Scan className="mr-1.5 h-4 w-4" /> Food
               </TabsTrigger>
@@ -204,7 +191,7 @@ export default function ScanPage() {
           {/* Capture area */}
           {!capturedImage ? (
             <>
-              {/* Capture‑mode selector */}
+              {/* Capture mode selector */}
               <div className="flex items-center justify-center gap-3">
                 <Button
                   size="sm"
@@ -221,24 +208,23 @@ export default function ScanPage() {
                   onClick={() => {
                     setCaptureMode("upload");
                     stopCamera();
+                    fileInputRef.current?.click();
                   }}
                 >
                   <ImageIcon className="mr-1.5 h-4 w-4" /> Upload
                 </Button>
               </div>
 
-              {/* Live camera / upload placeholder */}
               {captureMode === "camera" ? (
-                <figure className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl bg-muted/60">
+                <figure className="relative w-full overflow-hidden rounded-3xl aspect-[4/3] bg-muted/60">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="h-full w-full object-cover"
+                    className="object-cover w-full h-full"
                   />
-
                   {scanMode === "barcode" && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                       <div className="w-2/3 h-1/4 border-4 border-dashed border-primary rounded-lg animate-pulse" />
                     </div>
                   )}
@@ -248,9 +234,11 @@ export default function ScanPage() {
                   htmlFor="upload"
                   className="group flex flex-col items-center justify-center gap-2 aspect-[4/3] w-full rounded-3xl border-2 border-dashed border-muted/60 cursor-pointer transition hover:bg-muted/50"
                 >
-                  <ImageIcon className="h-10 w-10 text-muted-foreground group-hover:scale-105 transition" />
+                  <ImageIcon className="h-10 w-10 text-muted-foreground transition group-hover:scale-105" />
                   <span className="text-sm font-medium">Click to upload</span>
-                  <span className="text-xs text-muted-foreground">JPG • PNG • HEIC up to 10 MB</span>
+                  <span className="text-xs text-muted-foreground">
+                    JPG • PNG • HEIC up to 10&nbsp;MB
+                  </span>
                   <input
                     id="upload"
                     ref={fileInputRef}
@@ -264,11 +252,11 @@ export default function ScanPage() {
             </>
           ) : (
             <>
-              <figure className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl">
+              <figure className="relative w-full overflow-hidden rounded-3xl aspect-[4/3]">
                 <img
                   src={capturedImage}
                   alt="Captured"
-                  className="h-full w-full object-cover"
+                  className="object-cover w-full h-full"
                 />
                 <Button
                   size="icon"
@@ -293,7 +281,7 @@ export default function ScanPage() {
             >
               {isBusy === "analyzing" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing…
                 </>
               ) : (
                 <>
@@ -316,7 +304,7 @@ export default function ScanPage() {
               >
                 {isBusy === "capturing" ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Capturing...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Capturing…
                   </>
                 ) : (
                   "Capture Photo"
@@ -327,17 +315,17 @@ export default function ScanPage() {
         </CardFooter>
       </Card>
 
-      {/* Edge‑AI banner */}
-      <Card className="one-ui-card mt-8 border-none bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-sm">
+      {/* Edge-AI banner */}
+      <Card className="one-ui-card relative z-10 mt-8 border-none bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-sm">
         <CardContent className="flex items-start gap-4 py-6">
-          <div className="p-3 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-lg">
+          <div className="rounded-full bg-gradient-to-br from-blue-500 to-purple-500 p-3 text-white shadow-lg">
             <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="font-semibold mb-1">Edge AI Processing</h3>
+            <h3 className="mb-1 font-semibold">Edge AI Processing</h3>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {scanMode === "food"
-                ? "On‑device vision model recognises dishes and estimates nutrition – nothing leaves your phone."
+                ? "On-device vision model recognises dishes and estimates nutrition – nothing leaves your phone."
                 : scanMode === "barcode"
                 ? "Instantly decode barcodes and fetch nutrition facts from our offline database."
                 : "Our lightweight OCR extracts ingredient lists and highlights allergens offline."}

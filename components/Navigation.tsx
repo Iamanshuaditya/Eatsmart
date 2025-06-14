@@ -96,20 +96,42 @@ const Navigation = () => {
               transition={{ duration: 0.3 }}
             >
               <div className="px-6 py-4 space-y-4">
-                {navItems.map((item, index) => (
-                  <motion.a
-                    key={item}
-                    href={`#${item.toLowerCase().replace(' ', '-')}`}
-                    className="block text-white hover:text-blue-300 transition-colors duration-200 font-medium"
-                    style={{ fontFamily: "'Breul Grotesk B', 'Inter', sans-serif" }}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item}
-                  </motion.a>
-                ))}
+              {navItems.map((item, index) => {
+  const isDashboard = item === 'Start Scanning';
+  const href = isDashboard ? '/dashboard' : `#${item.toLowerCase().replace(' ', '-')}`;
+  return isDashboard ? (
+    <Link
+      key={item}
+      href={href}
+      className="block text-white hover:text-blue-300 transition-colors duration-200 font-medium"
+      style={{ fontFamily: "'Breul Grotesk B', 'Inter', sans-serif" }}
+      onClick={() => setIsMenuOpen(false)}
+      passHref
+    >
+      <motion.span
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: index * 0.1 }}
+      >
+        {item}
+      </motion.span>
+    </Link>
+  ) : (
+    <motion.a
+      key={item}
+      href={href}
+      className="block text-white hover:text-blue-300 transition-colors duration-200 font-medium"
+      style={{ fontFamily: "'Breul Grotesk B', 'Inter', sans-serif" }}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.1 }}
+      onClick={() => setIsMenuOpen(false)}
+    >
+      {item}
+    </motion.a>
+  );
+})}
+
               </div>
             </motion.div>
           )}
